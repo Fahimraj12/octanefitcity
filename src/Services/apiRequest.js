@@ -3,7 +3,7 @@ import alert from "./SweetAlert";
 
 // Axios instance
 const api = axios.create({
-  baseURL: "http://3.110.225.213:5000/api", // 🔁 change to your backend URL
+  baseURL: "http://localhost:5000/api", // 🔁 change to your backend URL
   // ❌ Removed the hardcoded "Content-Type" here
 });
 

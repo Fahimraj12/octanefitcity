@@ -53,6 +53,33 @@ export default function Dashboard() {
         }
     };
 
+    // ✅ BACKUP FUNCTION
+    const handleBackup = async () => {
+        try {
+            rootCtx[0](true); 
+            const response = await apiRequest.get("dashboard/backup");
+            
+            if (response.success && response.downloadUrl) {
+                const link = document.createElement("a");
+                link.href = response.downloadUrl;
+                
+                // ✅ YAHAN .sql KAR DEIN
+                link.setAttribute("download", "Database_Backup.sql"); 
+                
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                alert.success("SQL Backup downloaded successfully!");
+            } else {
+                alert.error("Failed to generate backup.");
+            }
+        } catch (error) {
+            alert.error("Backup error");
+        } finally {
+            rootCtx[0](false); 
+        }
+    };
+
     /* ================= CHART DATA ================= */
 
     const revenueData = {
@@ -67,31 +94,31 @@ export default function Dashboard() {
     };
 
     // ✅ UPDATED MEMBER GROWTH (GRADIENT + SMOOTH)
-   const memberGrowthData = {
-    labels: monthlyMembers.length
-        ? monthlyMembers.map(i => i.day || i.date || "Day")
-        : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    const memberGrowthData = {
+        labels: monthlyMembers.length
+            ? monthlyMembers.map(i => i.day || i.date || "Day")
+            : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
 
-    datasets: [{
-        label: "New Members",
-        data: monthlyMembers.length
-            ? monthlyMembers.map(i => i.count ?? 0)
-            : [0, 0, 0, 0, 0, 0, 0],
+        datasets: [{
+            label: "New Members",
+            data: monthlyMembers.length
+                ? monthlyMembers.map(i => i.count ?? 0)
+                : [0, 0, 0, 0, 0, 0, 0],
 
-        borderColor: "#c026d3",
-        backgroundColor: "rgba(192,38,211,0.15)",
-        tension: 0.4,
-        fill: true,
+            borderColor: "#c026d3",
+            backgroundColor: "rgba(192,38,211,0.15)",
+            tension: 0.4,
+            fill: true,
 
-        // 👇 Important to make line visible
-        borderWidth: 3,
-        pointRadius: 5,
-        pointHoverRadius: 7,
-        pointBackgroundColor: "#c026d3",
-        pointBorderColor: "#fff",
-        pointBorderWidth: 2,
-    }],
-};
+            // 👇 Important to make line visible
+            borderWidth: 3,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            pointBackgroundColor: "#c026d3",
+            pointBorderColor: "#fff",
+            pointBorderWidth: 2,
+        }],
+    };
 
     const distributionData = {
         labels: membershipDistribution.length ? membershipDistribution.map(i => i.name) : ["No Data"],
@@ -132,55 +159,55 @@ export default function Dashboard() {
 
     // ✅ NEW LINE OPTIONS
     const lineOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
+        responsive: true,
+        maintainAspectRatio: false,
 
-    plugins: {
-        legend: { display: false },
-        tooltip: {
-            backgroundColor: "#1e1b2e",
-            titleColor: "#fff",
-            bodyColor: "#ddd",
-            padding: 10,
-            cornerRadius: 6,
-            displayColors: false,
-        }
-    },
-
-    elements: {
-        line: {
-            borderJoinStyle: "round"
-        }
-    },
-
-    interaction: {
-        intersect: false,
-        mode: "index"
-    },
-
-    // ✅ ONLY ONE SCALES OBJECT
-    scales: {
-        x: {
-            grid: { display: false },
-            ticks: {
-                color: "#9490aa",
-                font: { family: "'Outfit', sans-serif" }
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: "#1e1b2e",
+                titleColor: "#fff",
+                bodyColor: "#ddd",
+                padding: 10,
+                cornerRadius: 6,
+                displayColors: false,
             }
         },
-        y: {
-            beginAtZero: true,   // ✅ important
-            grid: {
-                color: "#f1eef7",
-                drawBorder: false
+
+        elements: {
+            line: {
+                borderJoinStyle: "round"
+            }
+        },
+
+        interaction: {
+            intersect: false,
+            mode: "index"
+        },
+
+        // ✅ ONLY ONE SCALES OBJECT
+        scales: {
+            x: {
+                grid: { display: false },
+                ticks: {
+                    color: "#9490aa",
+                    font: { family: "'Outfit', sans-serif" }
+                }
             },
-            ticks: {
-                stepSize: 1,     // ✅ important for visibility
-                color: "#9490aa",
-                font: { family: "'Outfit', sans-serif" }
+            y: {
+                beginAtZero: true,   // ✅ important
+                grid: {
+                    color: "#f1eef7",
+                    drawBorder: false
+                },
+                ticks: {
+                    stepSize: 1,     // ✅ important for visibility
+                    color: "#9490aa",
+                    font: { family: "'Outfit', sans-serif" }
+                }
             }
         }
-    }
-};
+    };
 
     const doughnutOptions = {
         ...options,
@@ -190,11 +217,18 @@ export default function Dashboard() {
 
     return (
         <Wrapper>
-            <Header>
-                <Title>Business Overview</Title>
-                <PHDivider />
-                <Sub>Membership & revenue insights</Sub>
-            </Header>
+            {/* ✅ NEW WRAPPER: Taki original Header ka design kharab na ho */}
+            <HeaderWrapper>
+                <Header>
+                    <Title>Business Overview</Title>
+                    <PHDivider />
+                    <Sub>Membership & revenue insights</Sub>
+                </Header>
+                
+                <BackupButton onClick={handleBackup}>
+                    <i className="fa-solid fa-cloud-arrow-down" /> BACK UP
+                </BackupButton>
+            </HeaderWrapper>
 
             <Grid>
                 <StatCard>
@@ -275,8 +309,48 @@ export default function Dashboard() {
     );
 }
 
-/* KEEP ALL YOUR STYLES SAME (NO CHANGE) */
 /* ================= STYLES ================= */
+
+// ✅ Naya wrapper jo Header aur Button ko separate karega
+const HeaderWrapper = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+`;
+
+const BackupButton = styled.button`
+  background: var(--grad);
+  color: var(--white);
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--r1);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    opacity: 0.95;
+  }
+
+  i {
+    font-size: 1rem;
+  }
+
+  @media(max-width: 600px) {
+    width: 100%;
+    justify-content: center;
+  }
+`;
 
 const Wrapper = styled.div`
   display: flex;
