@@ -23,9 +23,10 @@ export default function SalesRegister() {
             const url = `reports/sales-register?startDate=${startDate}&endDate=${endDate}`;
             const res = await apiRequest.get(url);
 
-            if (res.status === "success") {
-                setData(res.result);
-                setTotals(res.totals);
+            if (res.status === "success" || res.status?.toUpperCase() === "SUCCESS") {
+              console.log("FULL API RESPONSE:", res.result);
+                setData(res.result || []);
+                setTotals(res.totals || {});
             } else {
                 setData([]);
             }
@@ -39,15 +40,19 @@ export default function SalesRegister() {
     const exportToExcel = () => {
         if (data.length === 0) return alert.error("No data to export!");
 
-        const headers = ["Date", "Invoice No", "Gross Amount", "GST Amount", "Net Amount"];
+        const headers = ["Financial Year", "Date", "Invoice No" , "Gross Amount", "GST Amount", "Net Amount"];
+        
         const rows = data.map(row => [
+            row.financialYear?.name || "N/A", 
             new Date(row.receipt_date).toLocaleDateString(),
             row.invoice_no,
+            // ALIAS MATCHING HERE
             row.gross_amount,
             row.gst_amount,
             row.net_amount
         ]);
-        rows.push(["TOTALS", "", totals.gross_amount, totals.gst_amount, totals.net_amount]);
+        
+        rows.push(["TOTALS", "", "", totals.gross_amount, totals.gst_amount, totals.net_amount]);
 
         const worksheetData = [headers, ...rows];
         const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
@@ -60,7 +65,6 @@ export default function SalesRegister() {
 
     return (
         <Container>
-            {/* Header Section */}
             <HeaderSection>
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                     <PageTitle>
@@ -76,7 +80,6 @@ export default function SalesRegister() {
                 )}
             </HeaderSection>
 
-            {/* Filter Section */}
             <FilterCard>
                 <GridRow>
                     <FormGroup>
@@ -104,14 +107,15 @@ export default function SalesRegister() {
                 </GridRow>
             </FilterCard>
 
-            {/* Table / Empty State Section */}
             {data.length > 0 ? (
                 <TableCard>
                     <Table>
                         <thead>
                             <tr>
+                              <th>Financial Year</th>
                                 <th className="ps-4">Date</th>
                                 <th>Invoice No</th>
+                                
                                 <th className="text-end">Gross Amount</th>
                                 <th className="text-end">GST Amount</th>
                                 <th className="text-end pe-4">Net Amount</th>
@@ -120,12 +124,19 @@ export default function SalesRegister() {
                         <tbody>
                             {data.map((row, i) => (
                                 <tr key={i}>
+                                  <td>
+                                        {/* ALIAS MATCHING HERE */}
+                                        <YearText>
+                                            {row.financialYear?.name || "N/A"}
+                                        </YearText>
+                                    </td>
                                     <td className="ps-4">
                                         <DateText>{new Date(row.receipt_date).toLocaleDateString()}</DateText>
                                     </td>
                                     <td>
                                         <InvoiceId>{row.invoice_no}</InvoiceId>
                                     </td>
+                                    
                                     <td className="text-end">
                                         <AmountBase>₹{row.gross_amount}</AmountBase>
                                     </td>
@@ -140,7 +151,7 @@ export default function SalesRegister() {
                         </tbody>
                         <TableFooter>
                             <tr>
-                                <td colSpan="2" className="text-end ps-4 label">TOTALS:</td>
+                                <td colSpan="3" className="text-end ps-4 label">TOTALS:</td>
                                 <td className="text-end value">₹{totals?.gross_amount?.toFixed(2)}</td>
                                 <td className="text-end value tax">₹{totals?.gst_amount?.toFixed(2)}</td>
                                 <td className="text-end pe-4 value net">₹{totals?.net_amount?.toFixed(2)}</td>
@@ -162,7 +173,7 @@ export default function SalesRegister() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-//  Styled Components matched to AdminMasterPage Theme
+//  Styled Components
 // ────────────────────────────────────────────────────────────────────────────
 
 const Container = styled.div`
@@ -325,7 +336,7 @@ const TableCard = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 800px;
+  min-width: 900px;
 
   th {
     background: var(--bg);
@@ -410,6 +421,16 @@ const InvoiceId = styled.span`
   color: var(--g1);
   background: var(--grad-soft);
   padding: 4px 8px;
+  border-radius: 4px;
+`;
+
+const YearText = styled.span`
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tm);
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  padding: 2px 6px;
   border-radius: 4px;
 `;
 

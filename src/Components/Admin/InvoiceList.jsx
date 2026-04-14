@@ -10,21 +10,59 @@ export default function InvoiceList() {
     const [search, setSearch] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const recordsPerPage = 10;
+    
+    // Naya state jo dikhayega ki abhi current saal konsa chal raha hai
+    const [activeYearDisplay, setActiveYearDisplay] = useState("Loading...");
 
     useEffect(() => {
-        fetchInvoices();
+        // First load
+        fetchDataBasedOnActiveYear();
+
+        // Agar kisi dusre component/tab mein saal badalta hai, toh update ho jayega
+        const handleStorageChange = (e) => {
+            if (e.key === "activeFinancialYearId" || e.key === "activeFinancialYearName") {
+                fetchDataBasedOnActiveYear();
+            }
+        };
+
+        window.addEventListener("storage", handleStorageChange);
+        return () => window.removeEventListener("storage", handleStorageChange);
         // eslint-disable-next-line
     }, []);
 
-    const fetchInvoices = async () => {
+    const fetchDataBasedOnActiveYear = async () => {
         try {
             rootCtx[0](true);
-            const res = await apiRequest.get("invoice/"); 
-            if (res.status === "success") {
-                setInvoices(res.result || []);
+            const activeYearId = localStorage.getItem("activeFinancialYearId");
+            const activeYearName = localStorage.getItem("activeFinancialYearName"); // Optional: if you saved it
+            
+            if (activeYearName) {
+                setActiveYearDisplay(activeYearName);
+            } else if (activeYearId) {
+                setActiveYearDisplay(`Active Year ID: ${activeYearId}`);
+            } else {
+                 setActiveYearDisplay("All Years");
+            }
+
+            // API endpoint ko Financial Year ID ke sath filter karne bhejna
+            const endpoint = activeYearId ? `invoice/${activeYearId}` : "invoice/";
+            const res = await apiRequest.get(endpoint); 
+            
+            if (res.status === "success" || res.status?.toUpperCase() === "SUCCESS") {
+                let fetchedData = res.result || [];
+                
+                // Fallback: Agar backend URL filter apply nahi kar raha toh React pe data filter kar lo
+                if (activeYearId && fetchedData.length > 0 && fetchedData[0].financial_year_id) {
+                     fetchedData = fetchedData.filter(inv => String(inv.financial_year_id) === String(activeYearId));
+                }
+
+                setInvoices(fetchedData);
+            } else {
+                 setInvoices([]);
             }
         } catch (err) {
             alert.error("Failed to load invoices");
+            setInvoices([]);
         } finally {
             rootCtx[0](false);
         }
@@ -38,7 +76,7 @@ export default function InvoiceList() {
         );
     }, [invoices, search]);
 
-    const totalPages = Math.ceil(filteredData.length / recordsPerPage);
+    const totalPages = Math.ceil(filteredData.length / recordsPerPage) || 1;
     const paginatedData = useMemo(() => {
         const start = (currentPage - 1) * recordsPerPage;
         return filteredData.slice(start, start + recordsPerPage);
@@ -58,7 +96,11 @@ export default function InvoiceList() {
                     <PageTitle>
                         Billing <span>/ Invoices</span>
                     </PageTitle>
-                    <Sub>Review all generated invoices and payment statuses.</Sub>
+                    <Sub>
+                        Review all generated invoices. 
+                        {/* Current selected year display */}
+                        <ActiveYearBadge>Viewing: {activeYearDisplay}</ActiveYearBadge>
+                    </Sub>
                 </div>
                 <HeaderActions>
                     <InputWrapper>
@@ -117,7 +159,7 @@ export default function InvoiceList() {
                                             <AmountDanger>₹{due}</AmountDanger>
                                         </td>
                                         <td className="text-center">
-                                            <Badge $status={inv.payment_status}>
+                                            <Badge $status={inv.payment_status?.toLowerCase()}>
                                                 {inv.payment_status}
                                             </Badge>
                                         </td>
@@ -132,7 +174,7 @@ export default function InvoiceList() {
                                             <i className="bi bi-receipt" />
                                         </div>
                                         <h6>No Invoices Found</h6>
-                                        <p>Try adjusting your search criteria.</p>
+                                        <p>No records found for the currently selected Financial Year.</p>
                                     </EmptyState>
                                 </td>
                             </tr>
@@ -174,7 +216,7 @@ export default function InvoiceList() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-//  Styled Components matched to AdminMasterPage Theme
+//  Styled Components
 // ────────────────────────────────────────────────────────────────────────────
 
 const Container = styled.div`
@@ -221,6 +263,20 @@ const Sub = styled.p`
   font-size: 0.8rem;
   color: var(--tm);
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+// Naya Badge banaya gaya hai current year dikhane ke liye
+const ActiveYearBadge = styled.span`
+  background: #dcfce7;
+  color: #16a34a;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid #bbf7d0;
 `;
 
 const HeaderActions = styled.div`

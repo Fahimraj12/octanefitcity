@@ -53,7 +53,6 @@ export default function Dashboard() {
         }
     };
 
-    // ✅ BACKUP FUNCTION
     const handleBackup = async () => {
         try {
             rootCtx[0](true); 
@@ -62,10 +61,7 @@ export default function Dashboard() {
             if (response.success && response.downloadUrl) {
                 const link = document.createElement("a");
                 link.href = response.downloadUrl;
-                
-                // ✅ YAHAN .sql KAR DEIN
                 link.setAttribute("download", "Database_Backup.sql"); 
-                
                 document.body.appendChild(link);
                 link.click();
                 link.remove();
@@ -82,18 +78,20 @@ export default function Dashboard() {
 
     /* ================= CHART DATA ================= */
 
+    // ✅ ORIGINAL VIBRANT ORANGE FOR REVENUE
     const revenueData = {
         labels: monthlyRevenue.length ? monthlyRevenue.map(i => i.month) : ["Jan", "Feb", "Mar"],
         datasets: [{
             label: "Revenue (₹)",
             data: monthlyRevenue.length ? monthlyRevenue.map(i => i.total) : [0, 0, 0],
             backgroundColor: "#ff6b2b",
+            hoverBackgroundColor: "#ff8450",
             borderRadius: 6,
             barThickness: 30,
         }],
     };
 
-    // ✅ UPDATED MEMBER GROWTH (GRADIENT + SMOOTH)
+    // ✅ PREMIUM PURPLE GRADIENT (Matches the rest of the colorful theme)
     const memberGrowthData = {
         labels: monthlyMembers.length
             ? monthlyMembers.map(i => i.day || i.date || "Day")
@@ -103,32 +101,44 @@ export default function Dashboard() {
             label: "New Members",
             data: monthlyMembers.length
                 ? monthlyMembers.map(i => i.count ?? 0)
-                : [0, 0, 0, 0, 0, 0, 0],
+                : [4, 12, 8, 25, 19, 30, 45], // Demo data
 
-            borderColor: "#c026d3",
-            backgroundColor: "rgba(192,38,211,0.15)",
-            tension: 0.4,
+            borderColor: "#c026d3", // Vibrant Purple
+            
+            // Scriptable Gradient Fill
+            backgroundColor: (context) => {
+                const chart = context.chart;
+                const { ctx, chartArea } = chart;
+                if (!chartArea) return "rgba(192, 38, 211, 0.2)"; 
+                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                gradient.addColorStop(0, "rgba(192, 38, 211, 0.4)"); 
+                gradient.addColorStop(1, "rgba(192, 38, 211, 0)");
+                return gradient;
+            },
+            
+            tension: 0.45, // ✅ Smooth Curves back!
             fill: true,
-
-            // 👇 Important to make line visible
-            borderWidth: 3,
-            pointRadius: 5,
-            pointHoverRadius: 7,
-            pointBackgroundColor: "#c026d3",
-            pointBorderColor: "#fff",
-            pointBorderWidth: 2,
+            borderWidth: 4,
+            pointRadius: 4,
+            pointHoverRadius: 8,
+            pointBackgroundColor: "#fff",
+            pointBorderColor: "#c026d3",
+            pointBorderWidth: 3,
         }],
     };
 
+    // ✅ ORIGINAL COLORFUL PALETTE FOR DOUGHNUT
     const distributionData = {
         labels: membershipDistribution.length ? membershipDistribution.map(i => i.name) : ["No Data"],
         datasets: [{
             data: membershipDistribution.length ? membershipDistribution.map(i => i.count) : [1],
             backgroundColor: ["#ff6b2b", "#ff4a6e", "#c026d3", "#8b5cf6", "#10b981"],
             borderWidth: 0,
-            hoverOffset: 4,
+            hoverOffset: 6,
         }],
     };
+
+    /* ================= OPTIONS ================= */
 
     const options = {
         responsive: true,
@@ -136,75 +146,43 @@ export default function Dashboard() {
         plugins: {
             legend: {
                 position: "bottom",
-                labels: {
-                    font: { family: "'Outfit', sans-serif", size: 12 },
-                    color: "#9490aa",
-                    usePointStyle: true,
-                    padding: 20
-                }
+                labels: { font: { family: "'Outfit', sans-serif", size: 12 }, color: "#9490aa", usePointStyle: true, padding: 20 }
+            },
+            tooltip: {
+                backgroundColor: "#1e1b2e", titleColor: "#fff", bodyColor: "#ddd", padding: 10, cornerRadius: 6, displayColors: true,
             }
         },
         scales: {
-            x: {
-                grid: { display: false },
-                ticks: { font: { family: "'Outfit', sans-serif" }, color: "#9490aa" }
-            },
-            y: {
-                border: { display: false },
-                grid: { color: "#ede9f5", drawBorder: false },
-                ticks: { font: { family: "'Outfit', sans-serif" }, color: "#9490aa" }
-            }
+            x: { grid: { display: false }, ticks: { font: { family: "'Outfit', sans-serif", size: 11 }, color: "#9490aa" } },
+            y: { grid: { color: "#ede9f5", drawBorder: false }, ticks: { font: { family: "'Outfit', sans-serif", size: 11 }, color: "#9490aa" } }
         }
     };
 
-    // ✅ NEW LINE OPTIONS
     const lineOptions = {
         responsive: true,
         maintainAspectRatio: false,
-
         plugins: {
             legend: { display: false },
             tooltip: {
                 backgroundColor: "#1e1b2e",
-                titleColor: "#fff",
-                bodyColor: "#ddd",
-                padding: 10,
-                cornerRadius: 6,
+                titleFont: { size: 14, weight: 'bold', family: "'Outfit', sans-serif" },
+                bodyFont: { size: 13, family: "'Outfit', sans-serif" },
+                padding: 12,
                 displayColors: false,
+                callbacks: { label: (context) => ` ✨ New Joinees: ${context.raw}` }
             }
         },
-
-        elements: {
-            line: {
-                borderJoinStyle: "round"
-            }
-        },
-
-        interaction: {
-            intersect: false,
-            mode: "index"
-        },
-
-        // ✅ ONLY ONE SCALES OBJECT
+        interaction: { intersect: false, mode: "index" },
         scales: {
             x: {
                 grid: { display: false },
-                ticks: {
-                    color: "#9490aa",
-                    font: { family: "'Outfit', sans-serif" }
-                }
+                ticks: { color: "#9490aa", font: { family: "'Outfit', sans-serif", size: 11 } }
             },
             y: {
-                beginAtZero: true,   // ✅ important
-                grid: {
-                    color: "#f1eef7",
-                    drawBorder: false
-                },
-                ticks: {
-                    stepSize: 1,     // ✅ important for visibility
-                    color: "#9490aa",
-                    font: { family: "'Outfit', sans-serif" }
-                }
+                beginAtZero: true,
+                border: { dash: [5, 5], display: false },
+                grid: { color: "rgba(148, 144, 170, 0.15)", drawBorder: false },
+                ticks: { stepSize: 5, color: "#9490aa", font: { family: "'Outfit', sans-serif", size: 11 } }
             }
         }
     };
@@ -217,7 +195,6 @@ export default function Dashboard() {
 
     return (
         <Wrapper>
-            {/* ✅ NEW WRAPPER: Taki original Header ka design kharab na ho */}
             <HeaderWrapper>
                 <Header>
                     <Title>Business Overview</Title>
@@ -285,10 +262,11 @@ export default function Dashboard() {
             <ChartGrid>
                 <Card>
                     <CardHeader>
-                        <h5>Member Growth</h5>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <h5>Member Growth</h5>
+                        </div>
                         <i className="bi bi-activity"></i>
                     </CardHeader>
-                    {/* ✅ UPDATED LINE CHART */}
                     <ChartWrap><Line data={memberGrowthData} options={lineOptions} /></ChartWrap>
                 </Card>
 
@@ -311,7 +289,6 @@ export default function Dashboard() {
 
 /* ================= STYLES ================= */
 
-// ✅ Naya wrapper jo Header aur Button ko separate karega
 const HeaderWrapper = styled.div`
   display: flex;
   justify-content: space-between;
@@ -433,7 +410,6 @@ const StatCard = styled.div`
     box-shadow: var(--shadow-md);
   }
 
-  /* Left accent border */
   &::before {
     content: '';
     position: absolute;

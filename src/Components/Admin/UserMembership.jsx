@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import logo from "../../assets/images.png";
+import * as XLSX from "xlsx"; 
 
 export default function UserMembership() {
     const rootCtx = useContext(rootContext);
@@ -19,13 +20,13 @@ export default function UserMembership() {
 
     const [showModal, setShowModal] = useState(false);
     const [selectedData, setSelectedData] = useState(null);
-
-    // State for action dropdown
     const [activeActionId, setActiveActionId] = useState(null);
 
-    // ===============================
-    // NEW: OUTSTANDING PAYMENT STATES
-    // ===============================
+    // EXCEL EXPORT STATES
+    const [fromDate, setFromDate] = useState("");
+    const [toDate, setToDate] = useState("");
+
+    // OUTSTANDING PAYMENT STATES
     const [showPayModal, setShowPayModal] = useState(false);
     const [payData, setPayData] = useState(null);
     const [payAmount, setPayAmount] = useState("");
@@ -34,7 +35,6 @@ export default function UserMembership() {
 
     const navigate = useNavigate();
 
-    // Close the dropdown if clicking outside
     useEffect(() => {
         const handleClickOutside = () => setActiveActionId(null);
         document.addEventListener("click", handleClickOutside);
@@ -50,15 +50,10 @@ export default function UserMembership() {
         // eslint-disable-next-line
     }, []);
 
-    // ===============================
-    // FETCH DATA
-    // ===============================
     const fetchMemberships = async () => {
         try {
             rootCtx[0](true);
             const res = await apiRequest.get("usermembership/");
-            console.log("API Response:", res);
-
             if (res.status === "success") {
                 setMemberships(res.result || []);
                 setCurrentPage(1);
@@ -66,29 +61,85 @@ export default function UserMembership() {
                 setMemberships([]);
             }
         } catch (err) {
-            console.log("Fetch Error:", err);
             alert.error("Failed to load memberships");
         } finally {
             rootCtx[0](false);
         }
     };
 
-    // ===============================
-    // PAYMENT LOGIC & MODAL HANDLERS
-    // ===============================
+    const handleExportExcel = () => {
+        if (!fromDate || !toDate) {
+            alert.error("Please select both From Date and To Date to export.");
+            return;
+        }
+
+        const startDate = new Date(fromDate);
+        startDate.setHours(0, 0, 0, 0);
+        
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+
+        const filteredForExcel = memberships.filter((m) => {
+            const memberDate = new Date(m.start_at); 
+            return memberDate >= startDate && memberDate <= endDate;
+        });
+
+        if (filteredForExcel.length === 0) {
+            alert.error("No memberships found in this date range.");
+            return;
+        }
+
+        const excelData = filteredForExcel.map((m, index) => {
+            const payments = m.InvoiceMaster?.Payments || [];
+            const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+            const packagePrice = m.InvoiceMaster?.net_amount || m.membershipPackage?.selling_price || totalPaid;
+            const dueAmount = packagePrice - totalPaid;
+            
+            const pkg = m.membershipPackage || {};
+            const mrp = pkg.mrp || packagePrice;
+            const gstStatus = pkg.gst_status || "excluded";
+            const gstPercent = pkg.gst_percentage || 0;
+
+            return {
+                "Sr No.": index + 1,
+                "Member Name": m.member?.name || "-",
+                "Mobile Number": m.member?.mobile || "-",
+                "Email ID": m.member?.email || m.member?.email_id || m.member?.emailId || m.member?.Email || "Not Provided",
+                "Package Name": pkg.name || "-",
+                "Start Date": m.start_at ? m.start_at.substring(0, 10) : "-",
+                "End Date": m.end_at ? m.end_at.substring(0, 10) : "-",
+                "Membership Status": m.status ? m.status.toUpperCase() : "-",
+                "Payment Status": m.InvoiceMaster?.payment_status ? m.InvoiceMaster.payment_status.toUpperCase() : "-",
+                "MRP (₹)": mrp,
+                "GST Details": gstStatus === "included" ? `Included (${gstPercent}%)` : `Excluded`,
+                "Net Amount (₹)": packagePrice,
+                "Total Paid (₹)": totalPaid,
+                "Balance Due (₹)": dueAmount > 0 ? dueAmount : 0
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+        const columnWidths = [
+            { wch: 8 },   { wch: 25 },  { wch: 15 },  { wch: 30 },  { wch: 25 },
+            { wch: 15 },  { wch: 15 },  { wch: 20 },  { wch: 20 },  { wch: 12 },
+            { wch: 15 },  { wch: 15 },  { wch: 15 },  { wch: 15 }
+        ];
+        worksheet["!cols"] = columnWidths;
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Memberships Data");
+
+        XLSX.writeFile(workbook, `Octane_Memberships_${fromDate}_to_${toDate}.xlsx`);
+    };
+
     const openPayModal = (m) => {
-        // Calculate remaining amount dynamically from relational data
         const totalAmount = m.InvoiceMaster?.net_amount || m.membershipPackage?.selling_price || 0;
         const payments = m.InvoiceMaster?.Payments || [];
         const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
         const due = totalAmount - totalPaid;
 
-        setPayData({
-            membership: m,
-            due: due,
-            invoice_id: m.InvoiceMaster?.id,
-            totalAmount: totalAmount
-        });
+        setPayData({ membership: m, due: due, invoice_id: m.InvoiceMaster?.id, totalAmount: totalAmount });
         setPayAmount(due);
         setPayMode("cash");
         setShowPayModal(true);
@@ -100,7 +151,6 @@ export default function UserMembership() {
             alert.error("Please enter a valid amount");
             return;
         }
-
         try {
             setIsPaying(true);
             const res = await apiRequest.post("usermembership/pay-outstanding", {
@@ -108,11 +158,10 @@ export default function UserMembership() {
                 amount_paying: payAmount,
                 payment_mode: payMode
             });
-
             if (res.status === "success") {
                 alert.success("Payment successful!");
                 setShowPayModal(false);
-                fetchMemberships(); // Refresh list to update UI
+                fetchMemberships(); 
             } else {
                 alert.error(res.message || "Payment Failed");
             }
@@ -123,13 +172,9 @@ export default function UserMembership() {
         }
     };
 
-    // ===============================
-    // DELETE
-    // ===============================
     const handleDelete = async (id) => {
         const confirm = await alert.confirm("Are you sure you want to delete?");
         if (!confirm) return;
-
         try {
             rootCtx[0](true);
             await apiRequest.delete(`usermembership/${id}`);
@@ -142,9 +187,6 @@ export default function UserMembership() {
         }
     };
 
-    // ===============================
-    // SEARCH & PAGINATION
-    // ===============================
     const filteredData = useMemo(() => {
         if (!search.trim()) return memberships;
         return memberships.filter((m) =>
@@ -161,9 +203,6 @@ export default function UserMembership() {
         return filteredData.slice(start, start + recordsPerPage);
     }, [filteredData, currentPage]);
 
-    // ===============================
-    // PDF & INVOICE GENERATION
-    // ===============================
     const getBase64Logo = () => {
         return new Promise((resolve) => {
             const img = new Image();
@@ -188,7 +227,6 @@ export default function UserMembership() {
         const isFullyPaid = dueAmount <= 0;
         const invoiceNo = data.InvoiceMaster?.invoice_no || `INV-${data.id}-${Date.now()}`;
 
-        // Package data extract karein safely
         const pkg = data.membershipPackage || data.MembershipPackage || {};
         const mrp = pkg.mrp ? pkg.mrp : packagePrice;
         const gstStatus = pkg.gst_status || "excluded";
@@ -311,7 +349,6 @@ export default function UserMembership() {
         const dueAmount = packagePrice - totalPaid;
         const isFullyPaid = dueAmount <= 0;
 
-        // ✅ Extract MRP and GST for WhatsApp
         const mrp = data.membershipPackage?.mrp || packagePrice;
         const gstStatus = data.membershipPackage?.gst_status || "excluded";
         const gstPercent = data.membershipPackage?.gst_percentage || 0;
@@ -321,7 +358,6 @@ export default function UserMembership() {
             ? payments.map((p) => `- ${p.payment_mode.toUpperCase()} : Rs.${p.amount} (${p.payment_date})`).join("\n")
             : `- Full Payment : Rs.${totalPaid}`;
 
-        // ✅ Updated Message Layout
         const message = `
     *OCTANE GYM*
     ----------------------------
@@ -351,9 +387,6 @@ export default function UserMembership() {
         window.open(`https://web.whatsapp.com/send?phone=91${phone}&text=${encodeURIComponent(message)}`, "_blank");
     };
 
-    // ===============================
-    // UI
-    // ===============================
     const changePage = (page) => {
         if (page >= 1 && page <= totalPages) {
             setCurrentPage(page);
@@ -372,11 +405,35 @@ export default function UserMembership() {
                 </div>
                 
                 <HeaderActions>
+                    {/* ✅ REDESIGNED EXCEL EXPORT GROUP */}
+                    <ExportGroup>
+                        <DateGroup>
+                            <i className="bi bi-calendar-range" />
+                            <DateInput 
+                                type="date" 
+                                value={fromDate} 
+                                onChange={(e) => setFromDate(e.target.value)} 
+                                title="From Date"
+                            />
+                            <span className="separator">to</span>
+                            <DateInput 
+                                type="date" 
+                                value={toDate} 
+                                onChange={(e) => setToDate(e.target.value)} 
+                                title="To Date"
+                            />
+                        </DateGroup>
+                        <ExportBtn onClick={handleExportExcel}>
+                            <i className="fa-solid fa-file-excel" />
+                            Export
+                        </ExportBtn>
+                    </ExportGroup>
+
                     <InputWrapper>
                         <i className="bi bi-search" />
                         <Input
                             type="text"
-                            placeholder="Search name, email, mobile..."
+                            placeholder="Search name, mobile..."
                             value={search}
                             onChange={(e) => {
                                 setSearch(e.target.value);
@@ -396,31 +453,27 @@ export default function UserMembership() {
                 <Table>
                     <thead>
                         <tr>
-                            <th width="60" className="text-center">#</th>
-                            <th width="220">Name</th>
+                            <th width="50" className="text-center">#</th>
+                            <th width="180">Name</th>
+                            <th width="120">Mobile</th> {/* ✅ NEW MOBILE COLUMN */}
                             <th>Membership</th>
                             <th>Start</th>
                             <th>End</th>
-                            <th width="120" className="text-center">Status</th>
+                            <th width="100" className="text-center">Status</th>
                             <th className="text-end">Total Paid</th>
-                            <th width="80" className="text-center">Action</th>
+                            <th width="60" className="text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         {paginatedData.length > 0 ? (
                             paginatedData.map((m, index) => {
-                                // ==========================================
-                                // NEW: Dynamic Expiration Check
-                                // ==========================================
                                 const today = new Date();
-                                today.setHours(0, 0, 0, 0); // Strip time for accurate day comparison
+                                today.setHours(0, 0, 0, 0); 
                                 
                                 const endDate = new Date(m.end_at);
                                 endDate.setHours(0, 0, 0, 0);
                                 
                                 const isExpired = endDate < today;
-                                
-                                // Override status to 'completed' if the date has passed
                                 const displayStatus = (isExpired && m.status === "active") ? "completed" : m.status;
 
                                 return (
@@ -430,7 +483,10 @@ export default function UserMembership() {
                                         </td>
                                         <td>
                                             <MemberName>{m.member?.name || "-"}</MemberName>
-                                            <ContactInfo>{m.member?.mobile}</ContactInfo>
+                                        </td>
+                                        <td>
+                                            {/* ✅ MOBILE NUMBER EXTRACTED HERE */}
+                                            <MobileText><i className="bi bi-telephone-fill me-1" style={{fontSize:"0.75rem", color:"#9ca3af"}}/> {m.member?.mobile || "-"}</MobileText>
                                         </td>
                                         <td>
                                             <PackageBadge>{m.membershipPackage?.name || "-"}</PackageBadge>
@@ -491,7 +547,6 @@ export default function UserMembership() {
                                                             Send WhatsApp
                                                         </DropdownItem>
 
-                                                        {/* Pay Due Button */}
                                                         {(m.InvoiceMaster?.payment_status === "partial" || m.InvoiceMaster?.payment_status === "unpaid") && (
                                                             <>
                                                                 <Divider />
@@ -522,7 +577,7 @@ export default function UserMembership() {
                             })
                         ) : (
                             <tr>
-                                <td colSpan="8">
+                                <td colSpan="9"> {/* ✅ UPDATED COLSPAN TO 9 */}
                                     <EmptyState>
                                         <div className="icon-box">
                                             <i className="bi bi-person-vcard" />
@@ -568,14 +623,11 @@ export default function UserMembership() {
 
             <UserMembershipModal show={showModal} handleClose={() => setShowModal(false)} onSuccess={fetchMemberships} editData={selectedData} />
 
-            {/* Hidden Div For Invoice Capture */}
             <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
                 <div ref={invoiceRef}></div>
             </div>
 
-            {/* ==================================================== */}
-            {/* ✅ NEW: OUTSTANDING PAYMENT MODAL (Styled) */}
-            {/* ==================================================== */}
+            {/* Outstanding Payment Modal */}
             {showPayModal && (
                 <ModalOverlay onClick={() => setShowPayModal(false)}>
                     <ModalBox onClick={e => e.stopPropagation()}>
@@ -635,13 +687,12 @@ export default function UserMembership() {
                     </ModalBox>
                 </ModalOverlay>
             )}
-
         </Container>
     );
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-//  Styled Components matched to AdminMasterPage Theme
+//  Styled Components
 // ────────────────────────────────────────────────────────────────────────────
 
 const Container = styled.div`
@@ -696,6 +747,82 @@ const HeaderActions = styled.div`
   gap: 12px;
   flex-wrap: wrap;
 `;
+
+// ===============================
+// ✅ REDESIGNED EXPORT GROUP
+// ===============================
+const ExportGroup = styled.div`
+  display: flex;
+  align-items: stretch;
+  background: var(--white);
+  border: 1px solid var(--border2);
+  border-radius: var(--r1);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+`;
+
+const DateGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: var(--bg);
+  
+  i {
+    color: var(--tm);
+    font-size: 0.95rem;
+  }
+  
+  .separator {
+    font-size: 0.8rem;
+    color: var(--tm);
+    font-weight: 700;
+  }
+`;
+
+const DateInput = styled.input`
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tb);
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  padding: 8px 0;
+
+  &::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.5;
+    transition: 0.2s;
+  }
+  &::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
+`;
+
+const ExportBtn = styled.button`
+  background: #10b981; /* Premium Emerald Green */
+  color: var(--white);
+  border: none;
+  padding: 0 18px;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  &:hover {
+    background: #059669;
+  }
+`;
+
+// ===============================
+// CONTINUED STYLES
+// ===============================
 
 const InputWrapper = styled.div`
   position: relative;
@@ -766,7 +893,7 @@ const TableCard = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 900px;
+  min-width: 950px; /* Thoda increase kiya for extra column */
 
   th {
     background: var(--bg);
@@ -809,9 +936,13 @@ const MemberName = styled.div`
   text-transform: capitalize;
 `;
 
-const ContactInfo = styled.div`
-  font-size: 0.75rem;
-  color: var(--tm);
+// ✅ NEW STYLED COMPONENT FOR MOBILE COLUMN
+const MobileText = styled.div`
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tb);
+  display: flex;
+  align-items: center;
 `;
 
 const PackageBadge = styled.span`
@@ -875,7 +1006,6 @@ const PartialBadge = styled.span`
   color: #d97706;
 `;
 
-/* ── ACTION DROPDOWN STYLES ── */
 const ActionContainer = styled.div`
   position: relative;
   display: inline-block;
@@ -913,7 +1043,6 @@ const ActionDropdown = styled.div`
   flex-direction: column;
   gap: 2px;
   
-  /* Quick slide up fade animation */
   animation: dropIn 0.15s ease-out forwards;
   @keyframes dropIn {
     from { opacity: 0; transform: translateY(-5px); }
@@ -961,8 +1090,6 @@ const Divider = styled.div`
   background: var(--border2);
   margin: 4px 0;
 `;
-
-/* ──────────────────────────── */
 
 const PaginationContainer = styled.div`
   display: flex;
@@ -1034,7 +1161,6 @@ const EmptyState = styled.div`
   }
 `;
 
-/* ── OUTSTANDING PAYMENT MODAL STYLES ── */
 const ModalOverlay = styled.div`
   position: fixed;
   inset: 0;
@@ -1068,7 +1194,7 @@ const ModalBox = styled.div`
 `;
 
 const ModalHeader = styled.div`
-  background: #fef3c7; /* warning-subtle */
+  background: #fef3c7; 
   padding: 16px 20px;
   display: flex;
   justify-content: space-between;

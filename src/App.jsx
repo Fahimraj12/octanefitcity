@@ -30,6 +30,8 @@ import GstReport from './Components/Admin/GstReport';
 import Profile from './Pages/Admin/Profile';
 import MemberDetails from './Pages/Member/MemberDetails';
 import Inquiries from './Components/Admin/Inquiries';
+import FinancialYear from './Components/Admin/FinancialYear';
+import OctaneGym from './Components/Admin/OctaneGym';
 export const rootContext = createContext();
 export default function App() {
   const [loading, setLoading] = useState(false);
@@ -37,6 +39,7 @@ export default function App() {
     <rootContext.Provider value={[setLoading]} >
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<OctaneGym />} />
           <Route path='login' element={<Login />} />
           <Route path='/admin' element={<AdminMasterPage />}>
           <Route path='profile' element={<Profile />} />
@@ -54,6 +57,7 @@ export default function App() {
             <Route path='user-membership' element={<UserMembership />} />
             <Route path="AddUserMembership" element={<AddUserMembership />}/>
             <Route path='ExpiringMembership' element={<ExpiringMemberships />} />
+            <Route path='financialYear' element={<FinancialYear />} />
             <Route path='level-list' element={<Level /> } />
             <Route path='equipment-list' element={<EquipmentList />} />
             <Route path='fitness-goal' element={<FitnessGoal />} />

@@ -62,6 +62,7 @@ export default function AdminMasterPage() {
   const [reportsDropdown,    setReportsDropdown]    = useState(false);
   const [levelDropdown,      setLevelDropdown]      = useState(false);
   const [eventDropdown,      setEventDropdown]      = useState(false);
+  const [configurationsDropdown, setconfigurations] = useState(false);
 
   const location  = useLocation();
   const pathnames = location.pathname.split("/").filter(Boolean);
@@ -113,6 +114,13 @@ export default function AdminMasterPage() {
             { label: "Expiring Memberships", to: "/admin/expiringmembership"  },
           ],
         },
+        {
+          icon: "bi-card-checklist", label: "Configurations",
+          state: configurationsDropdown, toggle: () => setconfigurations(!configurationsDropdown),
+          children: [
+            { label: "Financial Year", to: "/admin/financialYear" },
+          ],
+        },   
         {
           icon: "bi-people", label: "OFC Members",
           state: memberDropdown, toggle: () => setMemberDropdown(!memberDropdown),
