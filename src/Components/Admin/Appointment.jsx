@@ -56,7 +56,7 @@ export default function Appointment() {
             alert.error("Mobile number not available");
             return;
         }
-        const message = `*OCTANE GYM - Appointment Reminder*%0A%0AHello *${item.Member?.name}*,%0A%0AThis is a reminder for your session:%0A📦 *Package:* ${item.Package?.title}%0A📅 *Date:* ${item.date}%0A⏰ *Slot:* ${item.slot}%0A💰 *Amount:* ₹${item.amount}%0A💳 *Payment Status:* ${item.payment_status.toUpperCase()}%0A%0APlease arrive 10 minutes early. Thank you! 💪`;
+        const message = `*OCTANE FIT CITY - Appointment Reminder*%0A%0AHello *${item.Member?.name}*,%0A%0AThis is a reminder for your session:%0A📦 *Package:* ${item.Package?.title}%0A📅 *Date:* ${item.date}%0A⏰ *Slot:* ${item.slot}%0A💰 *Amount:* ₹${item.amount}%0A💳 *Payment Status:* ${item.payment_status.toUpperCase()}%0A%0APlease arrive 10 minutes early. Thank you! 💪`;
         window.open(`https://wa.me/91${phone}?text=${message}`, "_blank");
     };
 
@@ -134,14 +134,15 @@ export default function Appointment() {
                                         {/* Member Info */}
                                         <td className="ps-4">
                                             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                                {/* CORRECTED: Changed item.member to item.Member */}
                                                 <AvatarBox>
-                                                    {item.member?.profile_image ? (
+                                                    {item.Member?.profile_image ? (
                                                         <ProfileImg 
-                                                            src={`${API_BASE_URL}${item.member.profile_image.replace(/\\/g, "/")}`} 
-                                                            alt={item.member?.name} 
+                                                            src={`${API_BASE_URL}${item.Member.profile_image.replace(/\\/g, "/")}`} 
+                                                            alt={item.Member?.name} 
                                                         />
                                                     ) : (
-                                                        item.member?.name?.charAt(0).toUpperCase() || "?"
+                                                        item.Member?.name?.charAt(0).toUpperCase() || "?"
                                                     )}
                                                 </AvatarBox>
                                                 <div style={{ display: "flex", flexDirection: "column" }}>

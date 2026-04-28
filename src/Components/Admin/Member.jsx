@@ -6,6 +6,40 @@ import { rootContext } from "../../App";
 import alert from "../../Services/SweetAlert";
 import MemberModal from "./../Modals/MemberModal";
 
+// ============================================================
+// HELPER FUNCTION: To format the URL correctly
+// ============================================================
+const getFileUrl = (path, API_BASE_URL) => {
+    if (!path) return "";
+    const cleanPath = path.replace(/\\/g, "/").replace(/^\//, "");
+    return `${API_BASE_URL}${cleanPath}`;
+};
+
+// ============================================================
+// NAYA: Fallback Avatar Component (Handles broken image links)
+// ============================================================
+const MemberAvatar = ({ profile_image, name, API_BASE_URL }) => {
+    const [imageError, setImageError] = useState(false);
+    const fallbackChar = name?.charAt(0).toUpperCase() || "?";
+
+    // Agar image ka path hi nahi hai ya browser ko file nahi mili (404 Error)
+    if (!profile_image || imageError) {
+        return (
+            <AvatarFallback>
+                {fallbackChar}
+            </AvatarFallback>
+        );
+    }
+
+    return (
+        <ProfileImage
+            src={getFileUrl(profile_image, API_BASE_URL)}
+            alt={name || "Member"}
+            onError={() => setImageError(true)} // Ye line fail hone par fallback trigger karegi
+        />
+    );
+};
+
 export default function Member() {
     const rootCtx = useContext(rootContext);
     const navigate = useNavigate();
@@ -28,7 +62,7 @@ export default function Member() {
     // State for action dropdown
     const [activeActionId, setActiveActionId] = useState(null);
 
-    const API_BASE_URL = "http://localhost:5000/";
+    const API_BASE_URL = "http://3.110.225.213:5000/";
 
     // Close the dropdown if clicking outside
     useEffect(() => {
@@ -202,7 +236,6 @@ export default function Member() {
 
             {/* TABLE */}
             <TableCard>
-                {/* NAYA: TableContainer added for mobile horizontal scrolling */}
                 <TableContainer>
                     <Table>
                         <thead>
@@ -233,7 +266,6 @@ export default function Member() {
                                     const rawMembership = member.Memberships || member.UserMemberships || member.memberships || member.membership || [];
                                     const membershipList = Array.isArray(rawMembership) ? rawMembership : [rawMembership].filter(Boolean);
                                     
-                                    // Find the active membership, or grab the latest one if none are technically "active"
                                     const activeMembership = membershipList.find(m => m.status?.toLowerCase() === 'active') || 
                                         (membershipList.length > 0 ? membershipList.sort((a, b) => new Date(b.end_at) - new Date(a.end_at))[0] : null);
 
@@ -243,7 +275,7 @@ export default function Member() {
 
                                     if (activeMembership && activeMembership.end_at) {
                                         const today = new Date();
-                                        today.setHours(0, 0, 0, 0); // reset time for accurate day count
+                                        today.setHours(0, 0, 0, 0); 
                                         const endDate = new Date(activeMembership.end_at);
                                         endDate.setHours(0, 0, 0, 0);
                                         
@@ -258,22 +290,13 @@ export default function Member() {
                                                 {(currentPage - 1) * recordsPerPage + index + 1}
                                             </td>
 
-                                            {/* Profile Image Column */}
+                                            {/* Profile Image Column (Naya avatar system lagaya yahan) */}
                                             <td className="text-center">
-                                                {member.profile_image ? (
-                                                    <ProfileImage
-                                                        src={`${API_BASE_URL}${member.profile_image.replace(/\\/g, "/")}`}
-                                                        alt="profile"
-                                                        onError={(e) => {
-                                                            e.target.onerror = null;
-                                                            e.target.src = "https://via.placeholder.com/45?text=User";
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <AvatarFallback>
-                                                        <i className="fa-solid fa-user"></i>
-                                                    </AvatarFallback>
-                                                )}
+                                                <MemberAvatar 
+                                                    profile_image={member.profile_image} 
+                                                    name={member.name} 
+                                                    API_BASE_URL={API_BASE_URL} 
+                                                />
                                             </td>
 
                                             <td>
@@ -296,7 +319,7 @@ export default function Member() {
                                                         <span className="doc-num">{member.document_number}</span>
                                                         {member.document_file && (
                                                             <a
-                                                                href={`${API_BASE_URL}${member.document_file.replace(/\\/g, "/")}`}
+                                                                href={getFileUrl(member.document_file, API_BASE_URL)}
                                                                 target="_blank"
                                                                 rel="noreferrer"
                                                                 className="doc-link"
@@ -483,7 +506,6 @@ const HeaderSection = styled.div`
   flex-wrap: wrap;
   gap: 16px;
 
-  /* NAYA: Mobile media query */
   @media (max-width: 576px) {
     flex-direction: column;
     align-items: flex-start;
@@ -537,7 +559,6 @@ const AddBtn = styled.button`
     box-shadow: 0 6px 20px rgba(255, 74, 110, 0.4);
   }
 
-  /* NAYA: Mobile media query */
   @media (max-width: 576px) {
     width: 100%;
     justify-content: center;
@@ -625,12 +646,11 @@ const TableCard = styled.div`
   overflow: visible; 
 `;
 
-/* 🔥 NAYA: Table Container added for horizontal scrolling on mobile */
 const TableContainer = styled.div`
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  min-height: 250px; /* Space for the dropdown menu */
+  min-height: 250px; 
 `;
 
 const Table = styled.table`
@@ -677,19 +697,23 @@ const ProfileImage = styled.img`
   object-fit: cover;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   border: 2px solid var(--white);
+  flex-shrink: 0;
 `;
 
 const AvatarFallback = styled.div`
   width: 45px;
   height: 45px;
   border-radius: 50%;
-  background: var(--grad-soft);
-  color: var(--g1);
+  background: var(--grad);
+  color: var(--white);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.2rem;
+  font-weight: bold;
   margin: 0 auto;
+  box-shadow: 0 4px 10px rgba(255, 74, 110, 0.3);
+  flex-shrink: 0;
 `;
 
 const MemberName = styled.div`

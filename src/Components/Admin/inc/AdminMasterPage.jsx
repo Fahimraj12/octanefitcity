@@ -191,7 +191,7 @@ export default function AdminMasterPage() {
             </BurgerBtn>
             <Brand>
               <LogoBox>
-                <img src="/src/assets/logo.png" alt="Octane" />
+                <img src="/images-removebg-preview.png" alt="Octane" />
               </LogoBox>
               <BrandText>
                 <BrandName>OCTANE <Accent>FIT CITY</Accent></BrandName>
